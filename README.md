@@ -256,9 +256,9 @@ Den nemmeste vej for HA-brugere. Add-on'en pakker `aula-mcp` ind så den kører 
 
 Korte stik:
 
-- Et-klik install: [![Open your Home Assistant instance and add the aula-mcp add-on repository.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/Casperjuel/aula-mcp)
+- Et-klik install: [![Open your Home Assistant instance and add the aula-mcp add-on repository.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/lasne/aula-mcp)
 - `aula-mcp` taler både Streamable HTTP (`/mcp`) og den ældre SSE-dialekt (`/sse`) — HA's officielle [`mcp` (client) integration](https://www.home-assistant.io/integrations/mcp/) bruger SSE.
-- Login sker inde i add-on'ens egen sidebar-UI (MitID-QR + identitetsvalg).
+- Login sker inde i add-on'ens egen sidebar-UI (MitID-QR + identitetsvalg), og sessionen gemmes i add-on'ens `/data`, så den overlever genstart.
 
 ### Mulighed 4: VPS i Tyskland (Hetzner, Coolify)
 

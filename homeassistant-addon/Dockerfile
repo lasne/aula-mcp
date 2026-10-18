@@ -31,14 +31,15 @@
 #
 # Instead, the complete aula-mcp repository is cloned during the image build.
 #
-# AULA_MCP_REF controls which branch or tag is cloned. It defaults to `main`,
-# allowing a normal reinstall to build from the latest upstream version.
-#
-# For reproducible releases, AULA_MCP_REF can instead be set to a specific
-# release tag or commit-compatible branch name through build.yaml beside this
-# file.
+# AULA_MCP_REPO is this fork. Cloning Casperjuel/aula-mcp here would build
+# upstream source and silently drop fork fixes (the image's /run.sh still
+# comes from the add-on directory via COPY below, but the server itself
+# would not). AULA_MCP_REF defaults to `main`, so a reinstall tracks this
+# fork. Pin a tag or commit-compatible branch through build.yaml beside
+# this file when a reproducible release is needed.
 FROM node:24-bookworm-slim
 
+ARG AULA_MCP_REPO=https://github.com/lasne/aula-mcp.git
 ARG AULA_MCP_REF=main
 
 RUN apt-get update \
@@ -63,7 +64,7 @@ RUN corepack enable \
 WORKDIR /app
 
 RUN git clone --depth 1 --branch "${AULA_MCP_REF}" \
-  https://github.com/Casperjuel/aula-mcp.git .
+  "${AULA_MCP_REPO}" .
 
 RUN pnpm install --frozen-lockfile
 

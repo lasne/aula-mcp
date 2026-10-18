@@ -1,13 +1,14 @@
-name: aula-mcp
-version: "1.0.2"
-slug: aula_mcp
+name: aula-mcp (lasne)
+version: "1.1.0"
+slug: aula_mcp_lasne
 description: >-
-  MCP server for the Danish school platform Aula. Exposes aula.discover,
-  ugeplan, lektier, messages and more as MCP tools that HA's Assist
-  conversation agent (Anthropic / OpenAI / Ollama / etc.) can call —
-  including via Voice. Point HA's official `mcp` (client) integration
-  at http://homeassistant.local:7878/sse after install.
-url: "https://github.com/Casperjuel/aula-mcp"
+  MCP server for the Danish school platform Aula (lasne fork). MitID
+  login survives add-on restarts, updates, and Home Assistant reboots.
+  Exposes aula.discover, ugeplan, lektier, messages and more as MCP tools
+  that HA's Assist conversation agent (Anthropic / OpenAI / Ollama / etc.)
+  can call — including via Voice. Point HA's official `mcp` (client)
+  integration at http://homeassistant.local:7878/sse after install.
+url: "https://github.com/lasne/aula-mcp"
 arch:
   - amd64
   - aarch64
@@ -20,6 +21,9 @@ ports:
 ports_description:
   7878/tcp: aula-mcp HTTP (/mcp) + SSE (/sse)
 map:
+  # Home Assistant's config share, mounted at /homeassistant (not /config).
+  # The session itself lives on /data. This mount is only so a bundle a
+  # user dropped at /config/aula-mcp on the host can be imported on startup.
   # `homeassistant_config:rw` is the modern spelling; the older `config:rw`
   # still works but emits a deprecation warning in recent Supervisor builds.
   - homeassistant_config:rw
@@ -30,7 +34,7 @@ map:
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:school
-panel_title: aula-mcp
+panel_title: aula-mcp (lasne)
 options:
   aula_mcp_key: ""
   log: false
