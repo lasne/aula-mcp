@@ -56,7 +56,7 @@ minutter på en Pi.
 
 ### Et-klik
 
-[![Open your Home Assistant instance and add the aula-mcp add-on repository.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/Casperjuel/aula-mcp)
+[![Open your Home Assistant instance and add the aula-mcp add-on repository.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/lasne/aula-mcp)
 
 Klik badget → HA åbner "Add repository"-dialogen med URL'en pre-udfyldt.
 
@@ -64,22 +64,27 @@ Klik badget → HA åbner "Add repository"-dialogen med URL'en pre-udfyldt.
 
 1. Settings → **Add-ons** → **Add-on Store**.
 2. Trepunkts-menuen (øverst til højre) → **Repositories**.
-3. Indsæt `https://github.com/Casperjuel/aula-mcp` → **Add**.
+3. Indsæt `https://github.com/lasne/aula-mcp` → **Add**.
 
 Når repository'et er tilføjet:
 
-4. Bladr ned til **aula-mcp add-ons** sektionen i Add-on Store.
-5. Klik **aula-mcp** → **Install**. Supervisor bygger imaget lokalt (tager
-   1-2 min på en Pi).
-6. **Start ikke add-on'en endnu** — log først ind (næste sektion).
+4. Bladr ned til sektionen **aula-mcp (lasne)** i Add-on Store.
+5. Klik **aula-mcp (lasne)** → **Install**. Supervisor bygger imaget lokalt
+   (tager 1-2 min på en Pi). Stop upstream-add-on'en `aula-mcp` først, hvis
+   den stadig kører — begge vil have port 7878.
+6. **Start add-on'en** og log ind (næste sektion). Det er en separat
+   installation, så Supervisor kopierer ikke options fra upstream. Defaults
+   er de samme (`aula_mcp_key` tom, `log` fra, `allow_remote` til). Sæt kun
+   en option igen, hvis du havde ændret den.
 
 ---
 
 ## Log ind med MitID
 
-aula-mcp gemmer OAuth-tokens lokalt i `/config/aula-mcp/` (krypteret med
-AES-256-GCM). Tokens hentes via MitID-flow'et én gang; refresh sker derefter
-automatisk så længe Aula accepterer det.
+aula-mcp gemmer OAuth-tokens krypteret (AES-256-GCM) i add-on'ens private
+volume `/data/aula-mcp/` (`tokens.json` + `.key`). Den volume overlever
+genstart, opdatering og HA-reboot. Tokens hentes via MitID-flow'et én gang;
+refresh sker derefter automatisk så længe Aula accepterer det.
 
 Der er to måder at logge ind på:
 
@@ -88,17 +93,17 @@ Der er to måder at logge ind på:
 Den nemmeste — alt sker inde i HA.
 
 1. **Start add-on'en** fra dens side i Add-on Store.
-2. Et nyt punkt **aula-mcp** dukker op i HA's sidebar (klap eventuelt
+2. Et nyt punkt **aula-mcp (lasne)** dukker op i HA's sidebar (klap eventuelt
    sidebaren ud i bunden).
-3. Klik **aula-mcp**. Du ser *"Ikke logget ind"*.
+3. Klik **aula-mcp (lasne)**. Du ser *"Ikke logget ind"*.
 4. Skriv dit **MitID-brugernavn** og klik **Start login**.
 5. To QR-koder dukker op (de skifter automatisk — det er MitID's anti-phishing
    tjek). Åbn **MitID-appen** på din telefon, scan en af dem.
 6. Godkend login i MitID-appen.
 7. Hvis du har flere identiteter (typisk forældre med flere log-in-veje),
    vælg den der hører til Aula.
-8. Siden flipper til *"Logget ind 🎉"*. Tokens er gemt; access-token udløb
-   står på siden.
+8. Siden flipper til *"Logget ind 🎉"*. Tokens er gemt i `/data/aula-mcp/`;
+   access-token udløb står på siden. Næste genstart finder dem igen.
 
 Login-flow'et kører lokalt i din HA-installation. MitID-godkendelsen sker
 mellem MitID-appen og nemlog-in.dk. Add-on'en ser kun de tokens du får
@@ -111,21 +116,26 @@ gentage det programmatisk fra en server uden browser), kan du logge ind på en
 workstation og kopiere bundle'en:
 
 ```sh
-git clone https://github.com/Casperjuel/aula-mcp.git && cd aula-mcp
+git clone https://github.com/lasne/aula-mcp.git && cd aula-mcp
 pnpm install
 pnpm aula login                         # MitID QR-flow på workstation
 pnpm aula tokens export ./aula-bundle   # → aula-bundle/tokens.json + .key
 ```
 
-Kopiér de to filer ind i HA's `/config/aula-mcp/`:
+Kopiér de to filer ind i HA's config-mappe `/config/aula-mcp/` (det er
+værtsstien; inde i containeren hedder den `/homeassistant/aula-mcp`):
 
 ```sh
 # SSH'd HA (Studio Code Server add-on eller File editor add-on virker også)
+ssh homeassistant 'mkdir -p /config/aula-mcp'
 scp aula-bundle/tokens.json aula-bundle/.key homeassistant:/config/aula-mcp/
 ```
 
-Genstart add-on'en. Bundle'en er bytte-bar — næste login via UI'en
-overskriver bare hvad der lå før.
+Genstart add-on'en. Har `/data/aula-mcp/` ingen `tokens.json`, kopierer
+add-on'en bundle'en derind. Efter **Log ud** sker kopieringen ikke igen
+(logout sletter `tokens.json` med vilje). Erstat filerne i
+`/config/aula-mcp` for at importere en nyere bundle. Et login via UI'en
+skriver direkte til `/data` og overskriver den importerede session.
 
 ---
 
@@ -243,7 +253,7 @@ Eksempler du kan prøve:
 
 ### Add-on'en starter ikke / fejler ved boot
 
-Tjek **Settings → Add-ons → aula-mcp → Log**. Almindelige fejl:
+Tjek **Settings → Add-ons → aula-mcp (lasne) → Log**. Almindelige fejl:
 
 | Log-besked | Årsag | Løsning |
 | --- | --- | --- |
@@ -253,8 +263,8 @@ Tjek **Settings → Add-ons → aula-mcp → Log**. Almindelige fejl:
 
 ### HA's MCP-klient siger "Failed to connect"
 
-1. Tjek at add-on'en faktisk kører: Settings → Add-ons → aula-mcp → status
-   skal være **Started**.
+1. Tjek at add-on'en faktisk kører: Settings → Add-ons → aula-mcp (lasne) →
+   status skal være **Started**.
 2. Verificer at port 7878 svarer:
    ```sh
    curl -N http://homeassistant.local:7878/sse
@@ -282,7 +292,7 @@ Tjek **Settings → Add-ons → aula-mcp → Log**. Almindelige fejl:
 Aula's refresh-token roterer relativt aggressivt. Hvis add-on-loggen viser
 401'ere fra Aula:
 
-1. Åbn aula-mcp's sidebar-panel i HA.
+1. Åbn **aula-mcp (lasne)** i HA's sidebar.
 2. Klik **Log ud** (hvis du kan se *"Logget ind"*-status).
 3. Log ind igen via UI'en — samme flow som første gang.
 

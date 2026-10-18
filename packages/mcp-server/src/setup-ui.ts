@@ -316,9 +316,9 @@ async function runLogin(session: LoginSession, store: TokenStore, logger: Logger
 
 function defaultAddonStore(): TokenStore {
   // Mirror AulaContext's default store path resolution: honour AULA_MCP_DIR
-  // when set (the HA addon's run.sh exports it to /config/aula-mcp), and
+  // when set (the HA addon's run.sh exports it to /data/aula-mcp), and
   // otherwise fall back to ~/.config/aula-mcp so non-addon deployments (dev
-  // boxes, VPS) don't try to write into a non-existent /config directory.
+  // boxes, VPS) don't try to write into a non-existent /data directory.
   const dir = process.env.AULA_MCP_DIR ?? join(homedir(), '.config', 'aula-mcp');
   return new EncryptedFileTokenStore({
     filePath: join(dir, 'tokens.json'),

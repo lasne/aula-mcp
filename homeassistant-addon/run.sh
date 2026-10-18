@@ -4,6 +4,60 @@
 # server entry expects, then exec's into the long-running MCP server.
 set -eu
 
+# Copy a session left at a legacy path into the persistent store.
+#
+# Supervisor deletes the container on every stop (remove_container defaults
+# to true), so anything written on the container's own filesystem is gone
+# after a restart, an update, or a watchdog start. `/config/aula-mcp` is
+# such a path: `homeassistant_config` is mounted at `/homeassistant`, not
+# `/config`. `/data` is the add-on's private volume and is the one path
+# that survives those recreations.
+#
+# A bundle somebody already placed in the HA config share
+# (`/config/aula-mcp` on the host, `/homeassistant/aula-mcp` in here) is
+# imported when this store has no tokens.json. The same legacy file is not
+# imported again after a logout — logout deletes tokens.json on purpose,
+# and copying the old bundle back would sign the user in again. Touching
+# or replacing that bundle changes its fingerprint and imports it once more.
+migrate_aula_tokens() {
+  dest=$1
+  shift
+  mkdir -p "$dest"
+  if [ -f "$dest/tokens.json" ]; then
+    return 0
+  fi
+  marker=$dest/.legacy-import
+  for src in "$@"; do
+    if [ ! -f "$src/tokens.json" ]; then
+      continue
+    fi
+    # mtime + size identifies the bundle we last copied. GNU stat is
+    # available in the add-on image (Debian) and on the dev machines that
+    # run the migration test.
+    fp=$(stat -c '%Y:%s' "$src/tokens.json")
+    id="$src $fp"
+    if [ -f "$marker" ] && [ "$(cat "$marker")" = "$id" ]; then
+      echo "aula-mcp: legacy tokens at $src already imported; not signing back in"
+      continue
+    fi
+    echo "aula-mcp: migrating tokens from $src to $dest"
+    # `.` so dotfiles (.key) are included. Overwrites a leftover .key from
+    # a previous logout; that key belongs to the deleted tokens.json and
+    # cannot decrypt this bundle.
+    cp -a "$src"/. "$dest"/
+    # cp may have carried a marker out of the source. Record this source
+    # after the copy so a later logout stays logged out.
+    printf '%s\n' "$id" > "$marker"
+    return 0
+  done
+}
+
+if [ "${1:-}" = "--migrate-only" ]; then
+  shift
+  migrate_aula_tokens "$@"
+  exit 0
+fi
+
 OPTIONS_FILE=/data/options.json
 
 if [ -f "$OPTIONS_FILE" ]; then
@@ -17,11 +71,13 @@ else
   ALLOW_REMOTE="${ALLOW_REMOTE:-true}"
 fi
 
-# `/config/aula-mcp/` is mapped from Supervisor's /config volume. The user
-# copies their `tokens.json` + `.key` here after running `aula tokens export`
-# on a workstation — see homeassistant-addon/README.md.
-export AULA_MCP_DIR="/config/aula-mcp"
-mkdir -p "$AULA_MCP_DIR"
+# Private add-on volume. Holds tokens.json, the .key encryption key,
+# cookies.json, and login transcripts. Do not point this at /config:
+# that directory is not a mounted volume with the current map.
+TOKEN_DIR=/data/aula-mcp
+migrate_aula_tokens "$TOKEN_DIR" /config/aula-mcp /homeassistant/aula-mcp
+export AULA_MCP_DIR="$TOKEN_DIR"
+echo "aula-mcp: token store at ${AULA_MCP_DIR}"
 
 # The MCP server refuses non-loopback binds by default; HA's whole point is
 # serving the LAN, so the default `allow_remote: true` opens it up. Setting
@@ -47,6 +103,9 @@ fi
 if [ -n "$AULA_MCP_KEY" ]; then
   export AULA_MCP_KEY
 fi
+
+# Read-only Aula access. Write tools stay off unless a future option sets
+# AULA_MCP_WRITE=1; nothing in this add-on does.
 
 cd /app
 exec bun packages/mcp-server/src/server.ts
