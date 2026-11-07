@@ -6,19 +6,18 @@ set -eu
 
 # Copy a session left at a legacy path into the persistent store.
 #
-# Supervisor deletes the container on every stop (remove_container defaults
-# to true), so anything written on the container's own filesystem is gone
-# after a restart, an update, or a watchdog start. `/config/aula-mcp` is
-# such a path: `homeassistant_config` is mounted at `/homeassistant`, not
-# `/config`. `/data` is the add-on's private volume and is the one path
-# that survives those recreations.
+# The live MitID session is the add-on's private volume, /data/aula-mcp.
+# Supervisor keeps /data across stop, update, rebuild, and a Home Assistant
+# reboot, and drops it only on uninstall. config.yaml pins
+# homeassistant_config at /config (upstream's mount fix), so a bundle placed
+# at host /config/aula-mcp is visible at the same path here and is imported
+# when /data has no tokens.json. /homeassistant/aula-mcp is only a fallback
+# for an older map that used Supervisor's default mount point.
 #
-# A bundle somebody already placed in the HA config share
-# (`/config/aula-mcp` on the host, `/homeassistant/aula-mcp` in here) is
-# imported when this store has no tokens.json. The same legacy file is not
-# imported again after a logout — logout deletes tokens.json on purpose,
-# and copying the old bundle back would sign the user in again. Touching
-# or replacing that bundle changes its fingerprint and imports it once more.
+# The same bundle is not imported again after logout. Logout deletes
+# tokens.json on purpose, and copying the old bundle back would sign the
+# user in again. Replacing that bundle changes its fingerprint and imports
+# it once more.
 migrate_aula_tokens() {
   dest=$1
   shift
@@ -72,8 +71,8 @@ else
 fi
 
 # Private add-on volume. Holds tokens.json, the .key encryption key,
-# cookies.json, and login transcripts. Do not point this at /config:
-# that directory is not a mounted volume with the current map.
+# cookies.json, and login transcripts. /config is the HA config share and
+# is only an import source; the installed session already lives here.
 TOKEN_DIR=/data/aula-mcp
 migrate_aula_tokens "$TOKEN_DIR" /config/aula-mcp /homeassistant/aula-mcp
 export AULA_MCP_DIR="$TOKEN_DIR"

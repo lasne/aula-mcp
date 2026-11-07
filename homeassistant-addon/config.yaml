@@ -1,5 +1,5 @@
 name: aula-mcp (lasne)
-version: "1.1.0"
+version: "1.6.2-lasne.1"
 slug: aula_mcp_lasne
 description: >-
   MCP server for the Danish school platform Aula (lasne fork). MitID
@@ -21,12 +21,19 @@ ports:
 ports_description:
   7878/tcp: aula-mcp HTTP (/mcp) + SSE (/sse)
 map:
-  # Home Assistant's config share, mounted at /homeassistant (not /config).
-  # The session itself lives on /data. This mount is only so a bundle a
-  # user dropped at /config/aula-mcp on the host can be imported on startup.
-  # `homeassistant_config:rw` is the modern spelling; the older `config:rw`
-  # still works but emits a deprecation warning in recent Supervisor builds.
-  - homeassistant_config:rw
+  # Pin the mount. With the modern `homeassistant_config` map type,
+  # Supervisor mounts HA's configuration directory at /homeassistant by
+  # default, not /config (that default is only for the deprecated `config`
+  # map). Host `/config/aula-mcp` must appear at the same path in the
+  # container so startup can import a bundle from there.
+  #
+  # The live MitID session stays on the add-on volume `/data/aula-mcp`
+  # (see run.sh). That is the store this fork already installed. Bump
+  # `version` when this mapping changes: run.sh is baked into the image,
+  # and Supervisor will not rebuild until the version changes.
+  - type: homeassistant_config
+    read_only: false
+    path: /config
 # In-addon login UI exposed via HA Ingress. The addon binds two ports:
 # - 7878 (above): MCP traffic, exposed to the LAN per `ports:`.
 # - 8099 (below): setup/login UI, only reachable through HA's Ingress proxy.

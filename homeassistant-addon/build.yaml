@@ -9,7 +9,7 @@
 # rest of the monorepo. Pointing it at Casperjuel/aula-mcp builds upstream.
 #
 # To pin the add-on to a specific tag instead of `main`, set AULA_MCP_REF below
-# (e.g. `AULA_MCP_REF: "v1.6.1"`).
+# (e.g. `AULA_MCP_REF: "v1.6.2"`).
 args:
   AULA_MCP_REPO: "https://github.com/lasne/aula-mcp.git"
   AULA_MCP_REF: main

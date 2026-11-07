@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { compareAddonVersions } from './addon-version.ts';
 
 const ROOT = join(import.meta.dir, '..');
 const RUN = join(import.meta.dir, 'run.sh');
@@ -167,12 +168,19 @@ describe('add-on image wiring', () => {
     const repository = await readFile(join(ROOT, 'repository.yaml'), 'utf8');
     expect(config).toContain('name: aula-mcp (lasne)');
     expect(config).toContain('slug: aula_mcp_lasne');
-    expect(config).toContain('version: "1.1.0"');
+    const version = config.match(/^version:\s*"([^"]+)"/m)?.[1];
+    // 1.1.0 is the add-on Home Assistant already has installed. Supervisor
+    // offers an update only when the manifest version compares greater.
+    expect(version).toBeDefined();
+    expect(compareAddonVersions(version ?? '0.0.0', '1.1.0')).toBeGreaterThan(0);
+    expect(version).toMatch(/^\d+\.\d+\.\d+-lasne\.\d+$/);
     expect(config).toContain('url: "https://github.com/lasne/aula-mcp"');
     expect(config).toContain('aula_mcp_key: "password?"');
     expect(config).toContain('log: bool');
     expect(config).toContain('allow_remote: bool');
-    expect(config).toContain('homeassistant_config:rw');
+    expect(config).toContain('type: homeassistant_config');
+    expect(config).toContain('read_only: false');
+    expect(config).toContain('path: /config');
     expect(repository).toContain('url: "https://github.com/lasne/aula-mcp"');
     expect(repository).not.toContain('Casperjuel/aula-mcp');
   });

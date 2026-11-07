@@ -406,7 +406,7 @@ function renderSetupPage(): string {
 
   <details>
     <summary>Hvad sker der her?</summary>
-    <p class="muted">Login-flow'et kører lokalt i din HA-installation. MitID-godkendelsen sker mellem MitID-appen og <code>nemlog-in.mitid.dk</code> — denne side ser kun de OAuth-tokens du får tilbage, og gemmer dem krypteret i <code>/config/aula-mcp/</code>. Tokens forlader ikke din HA.</p>
+    <p class="muted">Login-flow'et kører lokalt i din HA-installation. MitID-godkendelsen sker mellem MitID-appen og <code>nemlog-in.mitid.dk</code> — denne side ser kun de OAuth-tokens du får tilbage, og gemmer dem krypteret i <code>/data/aula-mcp/</code>. Tokens forlader ikke din HA.</p>
   </details>
 </main>
 
