@@ -1,11 +1,13 @@
 # aula-mcp
 
-[![CI](https://github.com/Casperjuel/aula-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Casperjuel/aula-mcp/actions)
+[![CI](https://github.com/lasne/aula-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/lasne/aula-mcp/actions)
 [![Licens: MIT](https://img.shields.io/badge/Licens-MIT-yellow.svg)](./LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-≥%201.3-black?logo=bun)](https://bun.sh)
 [![pnpm](https://img.shields.io/badge/pnpm-≥%2010-F69220?logo=pnpm)](https://pnpm.io)
 [![MCP](https://img.shields.io/badge/Model_Context_Protocol-Streamable_HTTP-6B5BFF)](https://modelcontextprotocol.io)
 [![Tests](https://img.shields.io/badge/tests-248%20pass-brightgreen)](#udvikling)
+
+> **Fork (lasne).** Dette repo er Lasses fork af [Casperjuel/aula-mcp](https://github.com/Casperjuel/aula-mcp), og det er den Home Assistant bygger add-on'en `aula-mcp (lasne)` fra. Hvad der adskiller sig fra upstream — token-store på `/data`, read-only tools, versionsnummeret Supervisor opdaterer fra — står i [FORK.md](./FORK.md).
 
 **Hvad det her er — og hvad det *ikke* er:**
 
@@ -36,6 +38,7 @@ TypeScript + Bun + Hono. Bygget på skuldrene af [`scaarup/aula`](https://github
 
 ## Indhold
 
+- [Fork (lasne)](./FORK.md)
 - [Hvad serveren rør ved](#hvad-serveren-rør-ved)
 - [Kom i gang](#kom-i-gang)
 - [Forbind til Claude Code (eller claude.ai)](#forbind-til-claude-code-eller-claudeai)

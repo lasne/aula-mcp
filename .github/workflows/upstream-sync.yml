@@ -1,0 +1,201 @@
+name: Upstream sync
+
+# Merge Casperjuel/aula-mcp main into this fork every Monday, and when
+# dispatched by hand. A clean merge bumps the Home Assistant add-on version
+# and, after typecheck, lint, and tests, is merged with a merge commit so
+# the next run does not replay the same upstream commits.
+#
+# A merge that conflicts is pushed as a pull request and left open.
+# Pushes made with this workflow's token do not start ci.yml, so the checks
+# run here before a clean sync is merged.
+
+on:
+  schedule:
+    - cron: '15 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'lasne/aula-mcp'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/Casperjuel/aula-mcp.git
+          git fetch upstream main --tags
+
+      - name: Merge upstream
+        id: merge
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="chore/upstream-sync"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          upstream_sha=$(git rev-parse upstream/main)
+          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "status=uptodate" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git checkout -B "$branch" main
+          if git merge upstream/main -m "merge: upstream main $(git rev-parse --short upstream/main)"; then
+            echo "status=clean" >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "files<<EOF"
+              git diff --name-only --diff-filter=U
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            git merge --abort
+            git checkout -B "$branch" upstream/main
+            echo "status=conflicts" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.merge.outputs.status == 'clean'
+        with:
+          bun-version: latest
+
+      - name: Bump add-on version
+        id: bump
+        if: steps.merge.outputs.status == 'clean'
+        env:
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          next=$(bun homeassistant-addon/bump-addon-version.ts)
+          git add homeassistant-addon/config.yaml homeassistant-addon/CHANGELOG.md
+          git commit -m "chore(homeassistant-addon): bump add-on to ${next}"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v6.1.0
+        if: steps.merge.outputs.status == 'clean'
+
+      - uses: actions/setup-node@v7
+        if: steps.merge.outputs.status == 'clean'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify
+        id: verify
+        if: steps.merge.outputs.status == 'clean'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          bun test
+
+      - name: Close a stale sync pull request
+        if: steps.merge.outputs.status == 'uptodate'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          number=$(gh pr list --head chore/upstream-sync --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr close "$number" --comment "main already contains upstream. Closing this sync pull request."
+          fi
+
+      - name: Open pull request
+        id: pr
+        if: always() && (steps.merge.outputs.status == 'clean' || steps.merge.outputs.status == 'conflicts')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.merge.outputs.status }}
+          BRANCH: ${{ steps.merge.outputs.branch }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream_sha }}
+          CONFLICT_FILES: ${{ steps.merge.outputs.files }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          remote_sha=$(git ls-remote --heads origin "$BRANCH" | awk '{print $1}')
+          if [ -n "$remote_sha" ]; then
+            git push --force-with-lease="refs/heads/${BRANCH}:${remote_sha}" origin "HEAD:${BRANCH}"
+          else
+            git push -u origin "HEAD:${BRANCH}"
+          fi
+
+          gh label create upstream-sync \
+            --color 1D76DB \
+            --description "Automated merge from Casperjuel/aula-mcp" || true
+
+          python3 - << 'PY'
+          import os
+          from pathlib import Path
+
+          status = os.environ["STATUS"]
+          sha = os.environ["UPSTREAM_SHA"]
+          version = os.environ.get("VERSION", "")
+          files = os.environ.get("CONFLICT_FILES", "")
+          outcome = os.environ.get("VERIFY_OUTCOME", "")
+          if status == "conflicts":
+              title = "chore: upstream sync has conflicts"
+              body = Path(".github/upstream-sync/body-conflicts.md").read_text()
+              body = body.replace("__SHA__", sha).replace("__FILES__", files.rstrip())
+          else:
+              title = f"chore: merge upstream and bump add-on to {version}"
+              if outcome == "success":
+                  checks = (
+                      "The workflow ran `pnpm typecheck`, `pnpm lint`, and `bun test`, "
+                      "and they passed. A push from this workflow's token does not start "
+                      "CI, which is why they run here."
+                  )
+              else:
+                  checks = (
+                      f"The workflow ran `pnpm typecheck`, `pnpm lint`, and `bun test`, "
+                      f"and they did not pass (`{outcome}`). This pull request is left open."
+                  )
+              body = Path(".github/upstream-sync/body-clean.md").read_text()
+              body = body.replace("__SHA__", sha).replace("__VERSION__", version).replace("__CHECKS__", checks)
+          Path("/tmp/upstream-sync-title").write_text(title)
+          Path("/tmp/upstream-sync-body.md").write_text(body)
+          PY
+
+          title=$(cat /tmp/upstream-sync-title)
+          existing=$(gh pr list --head "$BRANCH" --base main --state open --json url --jq '.[0].url // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "$title" --body-file /tmp/upstream-sync-body.md
+            pr_url=$existing
+          else
+            pr_url=$(gh pr create --base main --head "$BRANCH" --title "$title" --body-file /tmp/upstream-sync-body.md --label upstream-sync)
+          fi
+          gh pr edit "$pr_url" --add-label upstream-sync
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+
+          if [ "$STATUS" = "clean" ] && [ "$VERIFY_OUTCOME" = "success" ]; then
+            for _ in 1 2 3 4 5 6; do
+              if gh pr merge "$pr_url" --merge; then
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "Could not merge ${pr_url}. It is open for review."
+            exit 1
+          fi
+
+      - name: Leave the pull request open
+        if: always() && (steps.merge.outputs.status == 'conflicts' || steps.verify.outcome == 'failure')
+        run: |
+          echo "Upstream sync needs a person. The pull request was not merged."
+          exit 1

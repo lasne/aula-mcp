@@ -122,8 +122,8 @@ pnpm aula login                         # MitID QR-flow på workstation
 pnpm aula tokens export ./aula-bundle   # → aula-bundle/tokens.json + .key
 ```
 
-Kopiér de to filer ind i HA's config-mappe `/config/aula-mcp/` (det er
-værtsstien; inde i containeren hedder den `/homeassistant/aula-mcp`):
+Kopiér de to filer ind i HA's config-mappe `/config/aula-mcp/` (samme sti
+inde i containeren — add-on'en monterer HA-config på `/config`):
 
 ```sh
 # SSH'd HA (Studio Code Server add-on eller File editor add-on virker også)

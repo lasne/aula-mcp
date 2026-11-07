@@ -8,6 +8,13 @@ points at `/sse`, and Assist + your chosen LLM (Anthropic, OpenAI, Ollama,
 etc.) gets every `aula.*` tool — including for voice queries like
 *"hvad er lektien i dag?"*.
 
+This is the lasne fork of [Casperjuel/aula-mcp](https://github.com/Casperjuel/aula-mcp). See [FORK.md](../FORK.md). In short:
+
+- Separate add-on (`aula_mcp_lasne`), image cloned from this repository.
+- MitID session on `/data/aula-mcp`. Upstream stores tokens on the HA config share. A bundle at `/config/aula-mcp` is imported when `/data` has none.
+- Home Assistant's config directory is mounted at `/config`.
+- Write tools and `aula.raw_request` stay off.
+
 ## Install
 
 [![Open your Home Assistant instance and add the aula-mcp add-on repository.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/lasne/aula-mcp)
